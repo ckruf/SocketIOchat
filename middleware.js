@@ -4,7 +4,6 @@ const JWT_SECRET = "supertopsecret123";
 
 // check that valid token is set in localStorage and put user detail into req.user
 const loginVerifier = async (req, res, next) => {
-  console.log("loginVerifier middleware");
   const token = req.cookies["AuthToken"];
   if (token) {
     try {

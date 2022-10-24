@@ -6,10 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/styles.css">
   <script src="/common.js"></script>
+  <script src="/users_script.js"></script>
   <title>users</title>
 </head>
 <body>
   {{>navbar}}
-  <h3>add some friends!</h3>
+  <h3 class="exploreHeading">add some friends!</h3>
+  <ul class="exploreList">
+    {{#users}}
+    <li data-mongo-id="{{id}}">{{username}}<button class="addButton">add friend</button></li>
+    {{/users}}
+  </ul>
 </body>
 </html>

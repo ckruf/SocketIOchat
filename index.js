@@ -8,6 +8,8 @@ const jwt = require("jsonwebtoken");
 const cookies = require("cookie-parser");
 
 const User = require("./models/user");
+const Community = require("./models/community");
+const Conversation = require("./models/conversation");
 const { loginVerifier } = require("./middleware");
 
 const PORT = 3000;
@@ -21,6 +23,7 @@ app.use(express.static("styles"));
 app.use(express.static("scripts"));
 
 app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
 app.use(cookies());
 
 app.set("views", `${__dirname}/views`);
@@ -28,10 +31,53 @@ app.set("view engine", "mustache");
 app.engine("mustache", mustacheExpress());
 
 app.get("/", loginVerifier, async (req, res, next) => {
-    return res.render("index", {
-        name: "Chris",
-        message: "Hey man, what's up?"
-    })
+
+  // helper function
+  const findMostRecentMessage = (messages) => {
+    let sortedMessages = messages.sort((a, b) => a.timeSent - b.timeSent);
+    let mostRecentMessage;
+    sortedMessages.length > 0
+    ? mostRecentMessage = sortedMessages[0].content.split(" ").slice(0, 30).join(" ")
+    : mostRecentMessage = "No messages yet."
+
+    return mostRecentMessage;
+  }
+
+
+  const loggedUsername = req.user.username;
+  const loggedUserId = mongoose.Types.ObjectId(req.user.id);
+  let friendChats = await Conversation.find({$or: [{userA: loggedUserId}, {userB: loggedUserId}]}).populate("userA").populate("userB");
+
+  friendChats = friendChats.map(chat => {
+    let friend;
+    chat.userA.username === loggedUsername 
+    ? friend = chat.userB.username
+    : friend = chat.userA.username;
+    
+    let mostRecentMessage = findMostRecentMessage(chat.messages);
+
+    return {
+      friend,
+      mostRecentMessage,
+      id: chat._id.toString()
+    };
+  });
+
+  let communityChats = await Community.find({members: loggedUserId});
+  communityChats = communityChats.map(community => {
+    let mostRecentMessage = findMostRecentMessage(community.messages)
+
+    return {
+      community: community.name,
+      id: community._id.toString(),
+      mostRecentMessage
+    }
+  })
+
+  return res.render("index", {
+      friendChats,
+      communityChats
+  })
 });
 
 app.get("/login", async (req, res) => {
@@ -84,13 +130,70 @@ app.post("/login_handler", async (req, res) => {
   return res.redirect("/");
 });
 
-app.get("/users", async (req, res) => {
-  return res.render("users");
+app.get("/users", loginVerifier, async (req, res) => {
+  const loggedUsername = req.user.username;
+  const loggedUserId = mongoose.Types.ObjectId(req.user.id);
+  let users = await User.find({"$and": [{username:{"$ne": loggedUsername}}, {friends: {"$ne": loggedUserId}}]});
+  let potentialFriends = users.map(user => {
+    return {
+      id: user._id.toString(),
+      username: user.username
+    }
+  })
+  console.log("usersForTemplate: ", potentialFriends);
+  return res.render("users", {users: potentialFriends});
 });
 
-app.get("/communities", async (req, res) => {
-  return res.render("communities");
+app.get("/communities", loginVerifier, async (req, res) => {
+  const loggedUserId = mongoose.Types.ObjectId(req.user.id);
+  let potentialCommunities = await Community.find({"members": {"$ne": loggedUserId}});
+  potentialCommunities = potentialCommunities.map(community => {
+    return {
+      name: community.name,
+      id: community._id.toString()
+    }
+  })
+  console.log(potentialCommunities);
+  return res.render("communities", {communities: potentialCommunities});
 });
+
+app.post("/add_friend", loginVerifier, async (req, res) => {
+  const loggedUser = await User.findOne({username: req.user.username});
+  const newFriendId = req.body.id;
+  const newFriend = await User.findById(newFriendId);
+  loggedUser.friends.push(newFriend._id);
+  newFriend.friends.push(loggedUser._id);
+  await loggedUser.save();
+  await newFriend.save();
+  const newConversation = new Conversation({
+    userA: loggedUser._id,
+    userB: newFriend._id
+  })
+  await newConversation.save();
+  return res.json({message: "success"});
+});
+
+app.post("/add_community", loginVerifier, async (req, res) => {
+  const founder = await User.findOne({username: req.user.username});
+  let potentiallyExists = await Community.findOne({name: req.body.communityName});
+  if (potentiallyExists) {
+    return res.redirect("/communities");
+  }
+  const newCommunity = new Community({name: req.body.communityName});
+  newCommunity.members.push(founder);
+  await newCommunity.save();
+  return res.redirect("/communities");
+});
+
+app.post("/join_community", loginVerifier, async (req, res) => {
+  const joiner = await User.findOne({username: req.user.username});
+  const communityId = req.body.id;
+  console.log("community id is ", communityId);
+  const community = await Community.findById(communityId);
+  community.members.push(joiner._id);
+  await community.save();
+  return res.json({message: "success"});
+})
 
 console.log("connecting to ", MONGODB_URI);
 

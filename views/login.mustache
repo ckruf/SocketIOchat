@@ -4,21 +4,21 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/login_styles.css">
+    <link rel="stylesheet" href="/styles.css">
     <title>chat - log in</title>
 </head>
 <body>
-    <h1 id="mainHeading">Log in to chat</h1>
-    <form action="">
+    <h1 id="mainHeading">login/register to chat</h1>
+    <form method="POST" action="/login_handler">
         <div class="inputContainer">
-            username: <input type="text" id="usernameInput" />
+            username: <input name="username" type="text" id="usernameInput" />
         </div>
 
         <div class="inputContainer">
-            password: <input type="password" id="passwordInput" />
+            password: <input name="password" type="password" id="passwordInput" />
         </div>
 
-        <input type="submit" id="loginBtn" value="submit">
+        <input type="submit" id="loginBtn" value="submit" >
     </form>
 </body>
 </html>

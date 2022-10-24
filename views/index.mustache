@@ -4,40 +4,49 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/index_styles.css">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/common.js"></script>
     <title>chat - main</title>
 </head>
 <body>
-    <div class="topContainer">
-        <span></span>
-        <h1>Chatter</h1>
-        <button class="newChatBtn">
-            <span>+</span>
-        </button>
-    </div>
-    <div class="container">
-        <div class="sideBar">
-            <h2>Your chats</h2>
-            <div class="chatWindow">
-                <p class="chatName">person 1</p>
-                <p class="chatPreview">Lorem ipsum dolor sit amet.</p>
-            </div>
-            <div class="chatWindow">
-                <p class="chatName">person 2</p>
-                <p class="chatPreview">Lorem ipsum dolor sit amet.</p>
-            </div>
-            <div class="chatWindow">
-                <p class="chatName">person 3</p>
-                <p class="chatPreview">Lorem ipsum dolor sit amet. Lorem ipsum, dolor sit amet consectetur adipisicing elit. Aspernatur id repudiandae consequatur quas soluta ipsum voluptatum, corporis, itaque animi nulla reiciendis earum quisquam, blanditiis consectetur quod provident laboriosam voluptate? Vero eos quibusdam, quisquam cupiditate numquam tempora ducimus minima nam adipisci cumque saepe blanditiis odio autem sunt, sit officiis dolor nobis.</p>
-            </div>
-            <div class="chatWindow">
-                <p class="chatName">{{ name }}</p>
-                <p class="chatPreview">{{ message }}</p>
-            </div>
-        </div>
-        <div class="main">
+    {{>navbar}}  
 
+    <div class="container">
+
+      <!-- begin sidebar -->
+      <div class="sideBar">
+        <div class="sideBarTitle">
+          <h2>Your chats</h2>
         </div>
+        <!-- chat windows -->
+        <div class="chatWindow">
+            <p class="chatName">person 1</p>
+            <p class="chatPreview">What's up bro, long time no see</p>
+        </div>
+        
+        <div class="chatWindow">
+            <p class="chatName">person 2</p>
+            <p class="chatPreview">Lorem ipsum dolor sit amet.</p>
+        </div>
+
+        <div class="chatWindow">
+            <p class="chatName">person 3</p>
+            <p class="chatPreview">Lorem ipsum dolor sit amet. Lorem ipsum, dolor sit amet consectetur adipisicing elit. Hello world, itaque animi nulla reiciendis earum quisquam, blanditiis consectetur quod provident laboriosam voluptate? Vero eos quibusdam, quisquam cupiditate numquam tempora ducimus minima nam adipisci cumque saepe blanditiis odio autem sunt, sit officiis dolor nobis.</p>
+        </div>
+
+        <div class="chatWindow">
+            <p class="chatName">{{ name }}</p>
+            <p class="chatPreview">{{ message }}</p>
+        </div>
+          <!-- end chat windows -->
+      </div>
+      <!-- end sidebar -->
+        
+      <!-- begin main panel -->
+      <div class="main">
+      </div>
+      <!-- end main panel -->
+    
     </div>
 </body>
 </html>

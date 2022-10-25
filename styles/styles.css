@@ -209,12 +209,41 @@ Index styles
     vertical-align: bottom;
 }
 
-.communityChats, .friendChats {
+.communityChats, .friendChats, #currentlyOnline {
   margin-top: 1.5rem;
 }
 
-.communityChats h3, .friendChats h3 {
+.communityChats h3, .friendChats h3, #currentlyOnline h3 {
   margin-bottom: 0.5rem;
+}
+
+.onlineDot {
+  height: 0.5rem;
+  width: 0.5rem;
+  display: inline-block;
+  background: lime;
+  border-radius: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+.onlineUsername {
+  margin-left: 0.5rem;
+}
+
+.onlineUserContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#unreadMessagesContainer {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+#unreadMessageCount {
+  font-size: 1.5rem;
+  font-weight: bold;
 }
 
 .discoverMsg {

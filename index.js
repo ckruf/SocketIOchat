@@ -6,6 +6,7 @@ const bodyParser = require("body-parser");
 const url_module = require("url");
 const jwt = require("jsonwebtoken");
 const cookies = require("cookie-parser");
+const { Server } = require("socket.io");
 
 const User = require("./models/user");
 const Community = require("./models/community");
@@ -19,6 +20,7 @@ const JWT_SECRET = "supertopsecret123";
 
 const app = express();
 const server = http.createServer(app);
+const io = new Server(server);
 
 app.use(express.static("styles"));
 app.use(express.static("scripts"));
@@ -30,6 +32,51 @@ app.use(cookies());
 app.set("views", `${__dirname}/views`);
 app.set("view engine", "mustache");
 app.engine("mustache", mustacheExpress());
+
+// Socket IO code
+
+// SocketIO middleware for username extraction
+io.use((socket, next) => {
+  const username = socket.handshake.auth.username;
+  if (!username) {
+    return next(new Error("Iinvalid username"));
+  }
+  socket.username = username;
+  next();
+})
+
+io.on("connection", (socket) => {
+  // when a client connects, send them a list of all online clients:
+  const onlineUsers = [];
+  for (let [id, socket] of io.of("/").sockets) {
+    onlineUsers.push({
+      userID: id,
+      username: socket.username
+    });
+  }
+  socket.emit("users", onlineUsers);
+
+  // when user connects, send "user connected" event to all users
+  // except for the one which just connected.
+  socket.broadcast.emit("user connected", {
+    userID: socket.id,
+    username: socket.username,
+  });
+
+  socket.on("private message", ({content, to}) => {
+    // private message is sent to room in which only the user is added, by default,
+    // the room whose name is the same as the session id of the socketIO connection
+    console.log("private message", {content, to});
+    socket.to(to).emit("private message", {
+      content,
+      from: socket.id
+    })
+  })
+})
+
+
+
+// Regular code
 
 app.get("/", loginVerifier, async (req, res, next) => {
 

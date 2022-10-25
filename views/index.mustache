@@ -26,7 +26,7 @@
         <div class="friendChats">
           <h3>Friends</h3>
           {{#friendChats}}
-          <div class="chatWindow" data-mongo-id="{{id}}">
+          <div class="chatWindow friendChatWindow" data-mongo-id="{{id}}">
             <p class="chatName">{{friend}}</p>
             <p class="chatPreview">{{mostRecentMessage}}</p>
           </div>
@@ -41,7 +41,7 @@
         <div class="communityChats">
           <h3>Communities</h3>
           {{#communityChats}}
-          <div class="chatWindow" data-mongo-id="{{id}}"> 
+          <div class="chatWindow communityChatWindow" data-mongo-id="{{id}}"> 
             <p class="chatName">{{community}}</p>
             <p class="chatPreview">{{mostRecentMessage}}</p>
           </div>
@@ -56,73 +56,80 @@
       <!-- end sidebar -->
         
       <!-- begin main panel -->
-      <div class="main">
+      <div id="main">
 
-
-        <div class="msgSection from">
-          <div class="message">
-            <div class="messageContent">
-              Lorem ipsum dolor sit amet.
-            </div>
-            <div class="messageMeta">
-              17:30
-            </div>
-          </div>
+        <div class="chatTitleContainer">
+          <h4 id="chatTitle">ChatName</h4>
         </div>
 
-        <div class="msgSection from">
-          <div class="message">
-            <div class="messageContent">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Rem dolor porro nostrum quos veniam laborum quis natus, sequi consectetur id quo quibusdam sunt debitis voluptatem! Facere est hic eveniet aspernatur.
-            </div>
-            <div class="messageMeta">
-              17:31
-            </div>
-          </div>
-        </div>
+        <div id="allMessagesContainer">
 
-        <div class="msgSection to">
-          <div class="message">
-            <div class="messageContent">
-              Lorem ipsum dolor, sit amet consectetur adipisicing elit.
-            </div>
-            <div class="messageMeta">
-              17:43
+          <div class="msgSection from">
+            <div class="message">
+              <div class="messageContent">
+                Lorem ipsum dolor sit amet.
+              </div>
+              <div class="messageMeta">
+                17:30
+              </div>
             </div>
           </div>
-        </div>
+  
+          <div class="msgSection from">
+            <div class="message">
+              <div class="messageContent">
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Rem dolor porro nostrum quos veniam laborum quis natus, sequi consectetur id quo quibusdam sunt debitis voluptatem! Facere est hic eveniet aspernatur.
+              </div>
+              <div class="messageMeta">
+                17:31
+              </div>
+            </div>
+          </div>
+  
+          <div class="msgSection to">
+            <div class="message">
+              <div class="messageContent">
+                Lorem ipsum dolor, sit amet consectetur adipisicing elit.
+              </div>
+              <div class="messageMeta">
+                17:43
+              </div>
+            </div>
+          </div>
+  
+          <div class="msgSection from">
+            <div class="message">
+              <div class="messageContent">
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Exercitationem, ipsum!
+              </div>
+              <div class="messageMeta">
+                17:50
+              </div>
+            </div>
+          </div>
+  
+          <div class="msgSection to">
+            <div class="message">
+              <div class="messageContent">
+                Lorem ipsum dolor sit amet consectetur, adipisicing elit. Animi sed odit alias voluptatum est. Ipsam accusantium culpa quibusdam ullam nesciunt illum modi molestiae, veniam dicta.
+              </div>
+              <div class="messageMeta">
+                17:53
+              </div>
+            </div>
+          </div>
+  
+          <div class="msgSection to">
+            <div class="message">
+              <div class="messageContent">
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Fugit, possimus!
+              </div>
+              <div class="messageMeta">
+                17:53
+              </div>
+            </div>
+          </div>
 
-        <div class="msgSection from">
-          <div class="message">
-            <div class="messageContent">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Exercitationem, ipsum!
-            </div>
-            <div class="messageMeta">
-              17:50
-            </div>
-          </div>
-        </div>
-
-        <div class="msgSection to">
-          <div class="message">
-            <div class="messageContent">
-              Lorem ipsum dolor sit amet consectetur, adipisicing elit. Animi sed odit alias voluptatum est. Ipsam accusantium culpa quibusdam ullam nesciunt illum modi molestiae, veniam dicta.
-            </div>
-            <div class="messageMeta">
-              17:53
-            </div>
-          </div>
-        </div>
-
-        <div class="msgSection to">
-          <div class="message">
-            <div class="messageContent">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Fugit, possimus!
-            </div>
-            <div class="messageMeta">
-              17:53
-            </div>
-          </div>
         </div>
 
         <div class="messageInputContainer">

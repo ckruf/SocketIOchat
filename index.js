@@ -10,6 +10,7 @@ const cookies = require("cookie-parser");
 const User = require("./models/user");
 const Community = require("./models/community");
 const Conversation = require("./models/conversation");
+const Message = require("./models/message");
 const { loginVerifier } = require("./middleware");
 
 const PORT = 3000;
@@ -37,7 +38,7 @@ app.get("/", loginVerifier, async (req, res, next) => {
     let sortedMessages = messages.sort((a, b) => a.timeSent - b.timeSent);
     let mostRecentMessage;
     sortedMessages.length > 0
-    ? mostRecentMessage = sortedMessages[0].content.split(" ").slice(0, 30).join(" ")
+    ? mostRecentMessage = sortedMessages[sortedMessages.length - 1].content.split(" ").slice(0, 30).join(" ")
     : mostRecentMessage = "No messages yet."
 
     return mostRecentMessage;
@@ -91,18 +92,15 @@ app.post("/login_handler", async (req, res) => {
 
   const potentialUser = await User.findOne({username: req.body.username});
 
-  console.log("potentailsUser is ", potentialUser);
 
 
   if (potentialUser && potentialUser.password !== req.body.password) {
-    console.log("first condition entered");
     return res.redirect(url_module.format({
       pathname: "/login",
       query: {"err_msg": "Wrong credentials"}
     }))
   } 
   else if (potentialUser && potentialUser.password === req.body.password) {
-    console.log("second condition entered");
     userDataForToken = {
       username: potentialUser.username,
       id: potentialUser._id
@@ -110,7 +108,6 @@ app.post("/login_handler", async (req, res) => {
   }
 
   else if (!potentialUser) {
-    console.log("third condition entered");
     const newUserData = {
       username: req.body.username,
       password: req.body.password
@@ -140,7 +137,6 @@ app.get("/users", loginVerifier, async (req, res) => {
       username: user.username
     }
   })
-  console.log("usersForTemplate: ", potentialFriends);
   return res.render("users", {users: potentialFriends});
 });
 
@@ -153,7 +149,6 @@ app.get("/communities", loginVerifier, async (req, res) => {
       id: community._id.toString()
     }
   })
-  console.log(potentialCommunities);
   return res.render("communities", {communities: potentialCommunities});
 });
 
@@ -193,7 +188,76 @@ app.post("/join_community", loginVerifier, async (req, res) => {
   community.members.push(joiner._id);
   await community.save();
   return res.json({message: "success"});
-})
+});
+
+app.get("/community_messages/:id", loginVerifier, async (req, res) => {
+  const communityId = req.params.id;
+  const community = await Community
+  .findById(communityId)
+  .populate({
+    path: "messages",
+    populate: {
+      path: "author",
+      model: "User"
+    }
+  });
+  return res.json({messages: community.messages});
+});
+
+app.post("/community_messages", loginVerifier, async (req, res) => {
+  const communityId = req.body.id;
+  const authorId = req.user.id;
+  const now = new Date();
+  const messageContent = req.body.content;
+  const message = {
+    author: mongoose.Types.ObjectId(authorId),
+    content: messageContent,
+    timeSent: now
+  }
+  const community = await Community.findById(communityId);
+  community.messages.push(message);
+  await community.save();
+  return res.json({success: message});
+});
+
+app.get("/friend_messages/:id", loginVerifier, async (req, res) => {
+  const conversationId = req.params.id;
+  const loggedUserId = req.user.id;
+  const conversation = await Conversation
+  .findById(conversationId)
+  .populate({
+    path: "messages",
+    populate: {
+      path: "author",
+      model: "User"
+    }
+  });
+  if (conversation.userA.toString() !== loggedUserId && conversation.userB.toString() !== loggedUserId) {
+    return res.status(401).json({fail: "Not allowed"});
+  }
+
+  return res.json({messages: conversation.messages});
+});
+
+app.post("/friend_messages", loginVerifier, async (req, res) => {
+  const conversationId = req.body.id;
+  const authorId = req.user.id;
+  const messageContent = req.body.content;
+  const now = new Date();
+  const message = {
+    author: mongoose.Types.ObjectId(authorId),
+    content: messageContent,
+    timeSent: now
+  };
+
+  const conversation = await Conversation.findById(conversationId);
+  if (conversation.userA.toString() !== authorId && conversation.userB.toString() !== authorId) {
+    return res.status(401).json({fail: "Not allowed"})
+  }
+  conversation.messages.push(message);
+  await conversation.save();
+  return res.json({success: message});
+});
 
 console.log("connecting to ", MONGODB_URI);
 

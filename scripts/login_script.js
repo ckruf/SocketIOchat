@@ -3,8 +3,8 @@ function main() {
   const usernameInputField = document.getElementById("usernameInput");
   loginBtn.addEventListener("click", () => {
     const username = usernameInputField.value;
-    console.log("username ", username);
-    window.localStorage.setItem("username", username);
+    const currentUser = { username };
+    window.localStorage.setItem("currentUser", currentUser);
   })
 }
 

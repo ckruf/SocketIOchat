@@ -78,6 +78,7 @@ io.on("connection", (socket) => {
 
 // Regular code
 
+// display home page, fill sidebar with all user's chats and most recent message in each
 app.get("/", loginVerifier, async (req, res, next) => {
 
   // helper function
@@ -128,10 +129,13 @@ app.get("/", loginVerifier, async (req, res, next) => {
   })
 });
 
+// display login page
 app.get("/login", async (req, res) => {
     return res.render("login");
 });
 
+// handle login with data POSTed from login form on login page, redirect user 
+// to home page if all is well
 app.post("/login_handler", async (req, res) => {
   console.log(JSON.stringify(req.body));
 
@@ -174,6 +178,7 @@ app.post("/login_handler", async (req, res) => {
   return res.redirect("/");
 });
 
+// display page with all users that a user could become friends with (ie users he's not friends with already)
 app.get("/users", loginVerifier, async (req, res) => {
   const loggedUsername = req.user.username;
   const loggedUserId = mongoose.Types.ObjectId(req.user.id);
@@ -187,6 +192,7 @@ app.get("/users", loginVerifier, async (req, res) => {
   return res.render("users", {users: potentialFriends});
 });
 
+// display page with all communities that a user could join (ie the ones he's not involved in)
 app.get("/communities", loginVerifier, async (req, res) => {
   const loggedUserId = mongoose.Types.ObjectId(req.user.id);
   let potentialCommunities = await Community.find({"members": {"$ne": loggedUserId}});
@@ -199,6 +205,7 @@ app.get("/communities", loginVerifier, async (req, res) => {
   return res.render("communities", {communities: potentialCommunities});
 });
 
+// make two users be friends
 app.post("/add_friend", loginVerifier, async (req, res) => {
   const loggedUser = await User.findOne({username: req.user.username});
   const newFriendId = req.body.id;
@@ -215,6 +222,7 @@ app.post("/add_friend", loginVerifier, async (req, res) => {
   return res.json({message: "success"});
 });
 
+// create new community
 app.post("/add_community", loginVerifier, async (req, res) => {
   const founder = await User.findOne({username: req.user.username});
   let potentiallyExists = await Community.findOne({name: req.body.communityName});
@@ -227,6 +235,7 @@ app.post("/add_community", loginVerifier, async (req, res) => {
   return res.redirect("/communities");
 });
 
+// add user as member of community chat
 app.post("/join_community", loginVerifier, async (req, res) => {
   const joiner = await User.findOne({username: req.user.username});
   const communityId = req.body.id;
@@ -237,6 +246,7 @@ app.post("/join_community", loginVerifier, async (req, res) => {
   return res.json({message: "success"});
 });
 
+// get messages from community chat
 app.get("/community_messages/:id", loginVerifier, async (req, res) => {
   const communityId = req.params.id;
   const community = await Community
@@ -251,6 +261,7 @@ app.get("/community_messages/:id", loginVerifier, async (req, res) => {
   return res.json({messages: community.messages});
 });
 
+// save new message in community chat to mongo
 app.post("/community_messages", loginVerifier, async (req, res) => {
   const communityId = req.body.id;
   const authorId = req.user.id;
@@ -267,6 +278,7 @@ app.post("/community_messages", loginVerifier, async (req, res) => {
   return res.json({success: message});
 });
 
+// get messages from friend conversation
 app.get("/friend_messages/:id", loginVerifier, async (req, res) => {
   const conversationId = req.params.id;
   const loggedUserId = req.user.id;
@@ -286,6 +298,7 @@ app.get("/friend_messages/:id", loginVerifier, async (req, res) => {
   return res.json({messages: conversation.messages});
 });
 
+// save new message in friend conversation to mongo
 app.post("/friend_messages", loginVerifier, async (req, res) => {
   const conversationId = req.body.id;
   const authorId = req.user.id;
@@ -305,6 +318,33 @@ app.post("/friend_messages", loginVerifier, async (req, res) => {
   await conversation.save();
   return res.json({success: message});
 });
+
+// return all chats that user sending the request is involved in, as json, so info can be put in localStorage
+app.get("/all_user_chats", loginVerifier, async (req, res)  =>{
+  const user = await User.findById(req.user.id).populate("friends").populate("communities");
+  const communities = user.communities.map(community => {
+    return {
+      chatMongoId: community._id.toString(),
+      chatName: community.name,
+      chatType: "community"
+    }
+  });
+  const userConversations = await Conversation.find({$or: [{userA: loggedUserId}, {userB: loggedUserId}]}).populate("userA").populate("userB");
+  const friends = userConversations.map(conversation => {
+    let chatName;
+    conversation.userA._id.toString() === req.user.id 
+    ? chatName = conversation.userB.username
+    : chatName = conversation.userA.username;
+    return {
+      chatMongoId: conversation._id.toString(),
+      chatName,
+      chatType: "friend"
+    }
+  })
+  const chats = communities.concat(friends);
+  
+  return res.json(chats);
+})
 
 console.log("connecting to ", MONGODB_URI);
 

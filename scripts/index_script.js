@@ -2,17 +2,15 @@
 localStorage
 
 {
-  currentUser: {
-    username: username // currentUser is set during login
-  },
-  currentChatName: currentChatName, // this is set when user clicks on chatWindow in sidebar 
+  currentUsername: currentUsername, // string, username of signed in user
+  currentChatName: currentChatName, // string, this is set when user clicks on chatWindow in sidebar
   allChats: 
     {
       chatName: {
         chatName: chatName,
         chatMongoId: chatMongoId,
         chatType: chatType, // "friend" | "community"
-        chatSocketId: chatSocketId // socketIO chatId
+        isOnline: bool // if user is online, we will send chats also to websocket, otherwise only to server
       }
     } 
   // allChats is initially set with all info except chatSocketId on page load of homepage, by fetching
@@ -21,114 +19,137 @@ localStorage
   // (ie when the user connects to socketIO on page load). chatSocketIds are then added whenever
   // a new friend goes online, using the "user connected" event 
 }
+
 */
 
+async function main() {
+  await storeAllChatInfo();
 
-let currentUsername;
-
-function main() {
-  const currentUser = JSON.parse(window.localStorage.getItem("currentUser"));
-  currentUsername = currentUser.username;
+  window.localStorage.removeItem("currentChatName");
+  // window.localStorage.setItem("currentUserShownOnline", JSON.stringify(false));
+  const currentUsername = window.localStorage.getItem("currentUsername");
 
   const socket = io("http://localhost:3000", {autoConnect: false});
   socket.auth = { username: currentUsername };
   socket.connect();
+  setupSocketEventListeners(socket);
 
-  setupSocketEventListeners(socket);  
-  attachAllEventListeners(socket);
-  
-  storeAllChatInfo();
-}
-
-
-const attachAllEventListeners = (socket) => {
   const messageTextarea = document.getElementById("messageInputField");
   messageTextarea.addEventListener("input", adjustHeightOnInput);
-
-  attachFriendChatEventListeners();
-  attachCommunityChatEventListeners();
-
+  attachChatWindowsEventListener();
   const sendBtn = document.getElementById("sendBtn");
   sendBtn.addEventListener("click", () => sendMessage(socket));
-
 }
 
-const attachFriendChatEventListeners = () => {
-  for (let friendWindow of friendChatWindows) {
-    const conversationId = friendWindow.getAttribute("data-mongo-id");
-    let chatNameElement;
-    for (let child of friendWindow.childNodes) {
-      if (child.className === "chatName") {
-        chatNameElement = child;
-        break;
-      } 
-    }
-    const chatName = chatNameElement.textContent;
-    friendWindow.addEventListener("click", () => loadChat(conversationId, chatName, "friend"));
+const attachChatWindowsEventListener = () => {
+  const chatWindows = document.getElementsByClassName("chatWindow");
+  for (let chatWindow of chatWindows) {
+    const chatName = chatWindow.getAttribute("data-chat-name");
+    chatWindow.addEventListener("click", () => loadChat(chatName));
   }
-}
-
-const attachCommunityChatEventListeners = () => {
-  const communityChatWindows = document.getElementsByClassName("communityChatWindow");
-  for (let communityWindow of communityChatWindows) {
-    const communityId = communityWindow.getAttribute("data-mongo-id");
-    let chatNameElement;
-    for (let child of communityWindow.childNodes) {
-      if (child.className === "chatName") {
-        chatNameElement = child;
-        break;
-      } 
-    }
-    const chatName = chatNameElement.textContent;
-    communityWindow.addEventListener("click", () => loadChat(communityId, chatName, "community"));
-  }
-
 }
 
 const setupSocketEventListeners = (socket) => {
   const currentlyOnlineDiv = document.getElementById("currentlyOnline");
-  socket.on("users", (onlineUsers) => {
+
+  socket.on("users", (onlineUsernames) => {
+    const offlineMsg = document.querySelector("#offlineMsg"); 
+    if (offlineMsg) {
+      offlineMsg.remove();
+    }
     const allChatsObject = JSON.parse(window.localStorage.getItem("allChats"));
-    onlineUsers.forEach(user => {
-      allChatsObject.username.chatSocketId = user.userID;
-      const onlineUserHTML = createOnlineUserHTML(user.username);
+    const currentUsername = window.localStorage.getItem("currentUsername");
+    onlineUsernames.forEach(username => {
+      if (username !== currentUsername) {
+        const chatObject = allChatsObject[username];
+        // prevents duplication in "currently online" section, because this event could be fired
+        // more than on first page load (if connection to server is lost and then gained again)
+        if (chatObject.isOnline) return;
+        chatObject.isOnline = true;
+      } 
+      else {
+          const currentUserDisplayed = JSON.parse(sessionStorage.getItem("currentUserDisplayed"));
+          if (currentUserDisplayed) return;
+          sessionStorage.setItem("currentUserDisplayed", JSON.stringify(true));
+      }
+      const onlineUserHTML = createOnlineUserHTML(username);
       currentlyOnlineDiv.appendChild(onlineUserHTML);
     })
     window.localStorage.setItem("allChats", JSON.stringify(allChatsObject));
   });
 
-  socket.on("user connected", user => {
-    const username = user.username;
-    const allChatsObject = JSON.parse(window.localStorage.getItem("allChats"));
-    allChatsObject.username.chatSocketId = user.userID;
-    window.localStorage.setItem("allChats", JSON.stringify(allChatsObject));
-    const onlineUserHTML = createOnlineUserHTML(username);
-    currentlyOnlineDiv.appendChild(onlineUserHTML);
+  socket.on("user connected", username => {
+    const currentUsername = window.localStorage.getItem("currentUsername");
+    if (username !== currentUsername) {
+      const allChatsObject = JSON.parse(window.localStorage.getItem("allChats"));
+      const chatObject = allChatsObject[username];
+      if (!chatObject.isOnline) {
+        chatObject.isOnline = true;
+        const onlineUserHTML = createOnlineUserHTML(username);
+        currentlyOnlineDiv.appendChild(onlineUserHTML);
+        window.localStorage.setItem("allChats", JSON.stringify(allChatsObject));
+      }
+    }
   })
 
-  socket.on("private message", ({ content, from}) => {
-    console.log("event handler entered")
-    console.log("from ", from);
+  socket.on("private message", ({ content, from, to}) => {
+    const currentUsername = window.localStorage.getItem("currentUsername");
     const currentChatName = window.localStorage.getItem("currentChatName");
-    const fromChatObject = findChatObjectBySocketId(from);
-    // message received from currently opened chat, display message
-    if (fromChatObject.chatName === currentChatName) {
+    // message belongs to currently opened chat, could be either from other party, or from myself in different tab
+    if (from === currentChatName || to === currentChatName) {
       message = {
         content,
         timeSent: new Date()
       }
-      const messageHTML = createMessageHTML(message);
+      const messageHTML = createMessageHTML(message, to === currentChatName);
       const allMessagesContainer = document.getElementById("allMessagesContainer");
       allMessagesContainer.appendChild(messageHTML)
     }
-    // message received from one of unopened chats in sidebar, show unread message notification
+    // message belongs to one of (currently unopened) chats in the sidebar, could be either from other party,
+    // or from myself in different tab
     else {
-        const unreadMessagesSpan = document.getElementById("unreadMessageCount");
-        let unreadMessageCount = unreadMessagesSpan.textContent;
-        unreadMessageCount = parseInt(unreadMessageCount);
-        unreadMessageCount++;
-        unreadMessagesSpan.textContent = unreadMessageCount;
+      let chatWindowName;
+
+      to === currentUsername
+      ? chatWindowName = from
+      : chatWindowName = to;
+
+      const chatWindow = document.getElementById(`chatWindow${chatWindowName}`);
+      const chatPreview = chatWindow.querySelector(".chatPreview");
+      chatPreview.textContent = content;
+
+      // message sent by other party, show notification
+      if (to === currentUsername) {
+        const topRow = chatWindow.querySelector(".chatTopRow");
+        if (!topRow.querySelector(".notificationSpan")) {
+          const notificationSpan = document.createElement("span");
+          notificationSpan.classList.add("notificationSpan");
+          topRow.appendChild(notificationSpan);
+        }
+      }
     }
+  });
+
+  socket.on("disconnect", reason => {
+    console.log("disconnected");
+    console.log(reason);
+
+    const currentlyOnline = document.getElementById("currentlyOnline");
+    currentlyOnline.textContent = "";
+    const offlineMessage = document.createElement("p");
+    offlineMessage.id = "offlineMsg";
+    offlineMessage.textContent = "You are offline";
+    currentlyOnline.appendChild(offlineMessage);
+
+    // mark all chats as offline
+    const allChatsObject = JSON.parse(window.localStorage.getItem("allChats"));
+    const chats = Object.values(allChatsObject);
+    chats.forEach(chat => {
+      chat.isOnline = false;
+    });
+    window.localStorage.setItem("allChats", JSON.stringify(allChatsObject));
+    console.log(window.localStorage);
+    sessionStorage.setItem("currentUserDisplayed", JSON.stringify(false));
   })
 
   socket.onAny((event, ...args) => {
@@ -138,11 +159,17 @@ const setupSocketEventListeners = (socket) => {
 }
 
 // adjust height of text area based on amount of text
+// not arrow function, because we need 'this'
 function adjustHeightOnInput() {
   const width = this.offsetWidth;
   const charsPerLine = width / 9.75;
-  const charCount = this.value.length;
-  const lineCount = Math.ceil(charCount / charsPerLine);
+  let charCount;
+  if (this.value) {
+    charCount = this.value.length;
+  } else {
+    charCount = 0;
+  }
+  let lineCount = Math.ceil(charCount / charsPerLine);
   if (charCount === 0) {
     lineCount = 1;
   }
@@ -152,18 +179,26 @@ function adjustHeightOnInput() {
 
 // get (non-real-time) messages from server and display them 
 // chatType is either "community" or "friend"
-const loadChat = async (chatMongoId, chatName, chatType) => {
+const loadChat = async (chatName) => {
   const allMessagesContainer = document.getElementById("allMessagesContainer");
   allMessagesContainer.textContent = "";
   const chatTitle = document.getElementById("chatTitle");
   chatTitle.textContent = chatName;
-  window.localStorage.setItem("currentChat", chatName);
-  const messages = await fetchChatMessages(chatMongoId, chatType);
-  displayChatMessages(messages, currentUsername);
+  window.localStorage.setItem("currentChatName", chatName);
+  const messages = await fetchChatMessages(chatName);
+  displayChatMessages(messages);
+  const chatWindow = document.getElementById(`chatWindow${chatName}`);
+  const topRow = chatWindow.querySelector(".chatTopRow");
+  const notificationSpan = topRow.querySelector(".notificationSpan");
+  if (notificationSpan) {
+    notificationSpan.remove();
+  }
+
 }
 
 // display messages in main window
-const displayChatMessages = (messages, currentUsername) => {
+const displayChatMessages = (messages) => {
+  const currentUsername = window.localStorage.getItem("currentUsername");
   const allMessagesContainer = document.getElementById("allMessagesContainer");
   messages = messages.sort((a, b) => a.timeSent - b.timeSent);
   messages.forEach(message => {
@@ -174,15 +209,12 @@ const displayChatMessages = (messages, currentUsername) => {
 }
 
 // get (non-real-tine) messages from server
-const fetchChatMessages = async (chatMongoId, chatType) => {
-  let url;
-  if (chatType === "friend") {
-    url = `/friend_messages/${chatMongoId}`;
-  } 
-  else if (chatType === "community") {
-    url = `/community_messages/${communityId}`;
-  }
-
+const fetchChatMessages = async (chatName) => {
+  const allChatsObject = JSON.parse(window.localStorage.getItem("allChats"));
+  const chatObject = allChatsObject[chatName];
+  const chatType = chatObject.chatType;
+  const chatMongoId = chatObject.chatMongoId;
+  const url = `/${chatType}_messages/${chatMongoId}`;
   const response = await fetch(url);
   const jsonResponse = await response.json();
   return jsonResponse.messages;
@@ -224,30 +256,34 @@ const createMessageHTML = (message, isTo) => {
 const sendMessage = (socket) => {
   const messageInputField = document.getElementById("messageInputField");
   const messageContent = messageInputField.value;
-  const id = window.localStorage.getItem("currentChatId");
-  const currentChatType = window.localStorage.getItem("currentChatType");
-  postMessageToServer(id, messageContent, currentChatType)
-  displaySentMessage(messageContent);
+  messageInputField.value = "";
   const currentChatName = window.localStorage.getItem("currentChatName");
-  const currentChatSocketId = window.localStorage.getItem(`socketID-${currentChatName}`);
-  socket.emit("private message", {
-    content: messageContent,
-    to: currentChatSocketId
-  })
+  postMessageToServer(currentChatName, messageContent);
+  displaySentMessage(messageContent);
+  
+  const allChatsObject = JSON.parse(window.localStorage.getItem("allChats"));
+  const currentChatObject = allChatsObject[currentChatName];
+  if (currentChatObject.isOnline) {
+    socket.emit("private message", {
+      content: messageContent,
+      to: currentChatName
+    });
+  }
 }
 
-const postMessageToServer = async (chatMongoId, messageContent, chatType) => {
+const postMessageToServer = async (chatName, messageContent) => {
+  const allChatsObject = JSON.parse(window.localStorage.getItem("allChats"));
+  const chatObject = allChatsObject[chatName];
+  const chatMongoId = chatObject.chatMongoId;
+  const chatType = chatObject.chatType;
+
   const payload = {
     id: chatMongoId,
     content: messageContent
   }
-  let url;
-  if (chatType === "community") {
-    url = "/community_messages";
-  }
-  else if (chatType === "friend") {
-    url = "/friend_messages";
-  }
+  
+  const url = `/${chatType}_messages`
+
   fetch(url, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -258,7 +294,6 @@ const postMessageToServer = async (chatMongoId, messageContent, chatType) => {
 }
 
 const displaySentMessage = (messageContent) => {
-  console.log("displaySentMessage");
   const message = {
     content: messageContent,
     timeSent: new Date()
@@ -288,10 +323,11 @@ const storeAllChatInfo = async () => {
   const jsonResponse = await response.json();
   const allChatsObject = jsonResponse.reduce((allChatsObject, chatObject) => {
     const chatName = chatObject.chatName;
-    allChatsObject.chatName = chatObject;
+    chatObject.isOnline = false;
+    allChatsObject[chatName] = chatObject;
     return allChatsObject;
   }, {})
-  window.localStorage.setItem("allChats". JSON.stringify(allChatsObject));
+  window.localStorage.setItem("allChats", JSON.stringify(allChatsObject));
 }
 
 const findChatObjectBySocketId = (socketId) => {

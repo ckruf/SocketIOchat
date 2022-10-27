@@ -27,8 +27,10 @@
         <div class="friendChats">
           <h3>Friends</h3>
           {{#friendChats}}
-          <div class="chatWindow friendChatWindow" data-mongo-id="{{id}}">
-            <p class="chatName">{{friend}}</p>
+          <div class="chatWindow friendChatWindow" data-chat-name="{{friend}}" id="chatWindow{{friend}}">
+            <div class="chatTopRow">
+              <p class="chatName">{{friend}}</p>
+            </div>
             <p class="chatPreview">{{mostRecentMessage}}</p>
           </div>
           {{/friendChats}}
@@ -42,8 +44,10 @@
         <div class="communityChats">
           <h3>Communities</h3>
           {{#communityChats}}
-          <div class="chatWindow communityChatWindow" data-mongo-id="{{id}}"> 
-            <p class="chatName">{{community}}</p>
+          <div class="chatWindow communityChatWindow" data-chat-name="{{community}}" id="chatWindow{{community}}">
+            <div class="chatTopRow">
+              <p class="chatName">{{community}}</p>
+            </div>
             <p class="chatPreview">{{mostRecentMessage}}</p>
           </div>
           {{/communityChats}}
@@ -53,15 +57,16 @@
         </div>
         <!-- end community chats -->
 
-        <div id="currentlyOnline">
+        <div id="currentlyOnlineContainer">
           <h3>Currently online</h3>
-          <div class="onlineUserContainer">
-            <span class="onlineUsername">Testuser</span> <span class="onlineDot"></span>
+          <div id="currentlyOnline">
+            <!-- example element -->
+            <!-- 
+            <div class="onlineUserContainer">    
+              <span class="onlineUsername">Testuser</span> <span class="onlineDot"></span>
+            </div> 
+            -->
           </div>
-        </div>
-
-        <div id="unreadMessagesContainer">
-          You have <span id="unreadMessageCount">0</span> unread messages in this session.
         </div>
 
       </div>

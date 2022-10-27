@@ -11,7 +11,6 @@ const { Server } = require("socket.io");
 const User = require("./models/user");
 const Community = require("./models/community");
 const Conversation = require("./models/conversation");
-const Message = require("./models/message");
 const { loginVerifier } = require("./middleware");
 
 const PORT = 3000;
@@ -46,30 +45,29 @@ io.use((socket, next) => {
 })
 
 io.on("connection", (socket) => {
+  // put client in their own room (since client could have multiple tabs open, each with own connection)
+  socket.join(socket.username);
   // when a client connects, send them a list of all online clients:
-  const onlineUsers = [];
+  let onlineUsers = new Set();
   for (let [id, socket] of io.of("/").sockets) {
-    onlineUsers.push({
-      userID: id,
-      username: socket.username
-    });
+    onlineUsers.add(socket.username)
   }
+  onlineUsers = Array.from(onlineUsers);
+
   socket.emit("users", onlineUsers);
 
   // when user connects, send "user connected" event to all users
   // except for the one which just connected.
-  socket.broadcast.emit("user connected", {
-    userID: socket.id,
-    username: socket.username,
-  });
+  socket.broadcast.emit("user connected", socket.username);
 
   socket.on("private message", ({content, to}) => {
-    // private message is sent to room in which only the user is added, by default,
-    // the room whose name is the same as the session id of the socketIO connection
     console.log("private message", {content, to});
-    socket.to(to).emit("private message", {
+    // send message to receiver's room and to sender's room, since sender could have multiple 
+    // tabs open with separate sockets, but they are all in the sender's room
+    socket.to(to).to(socket.username).emit("private message", {
       content,
-      from: socket.id
+      to,
+      from: socket.username,
     })
   })
 })
@@ -137,13 +135,8 @@ app.get("/login", async (req, res) => {
 // handle login with data POSTed from login form on login page, redirect user 
 // to home page if all is well
 app.post("/login_handler", async (req, res) => {
-  console.log(JSON.stringify(req.body));
-
   let userDataForToken;
-
   const potentialUser = await User.findOne({username: req.body.username});
-
-
 
   if (potentialUser && potentialUser.password !== req.body.password) {
     return res.redirect(url_module.format({
@@ -239,10 +232,11 @@ app.post("/add_community", loginVerifier, async (req, res) => {
 app.post("/join_community", loginVerifier, async (req, res) => {
   const joiner = await User.findOne({username: req.user.username});
   const communityId = req.body.id;
-  console.log("community id is ", communityId);
   const community = await Community.findById(communityId);
   community.members.push(joiner._id);
   await community.save();
+  joiner.communities.push(community._id);
+  await joiner.save();
   return res.json({message: "success"});
 });
 
@@ -320,8 +314,9 @@ app.post("/friend_messages", loginVerifier, async (req, res) => {
 });
 
 // return all chats that user sending the request is involved in, as json, so info can be put in localStorage
-app.get("/all_user_chats", loginVerifier, async (req, res)  =>{
-  const user = await User.findById(req.user.id).populate("friends").populate("communities");
+app.get("/all_user_chats", loginVerifier, async (req, res)  => {
+  const loggedUserId = req.user.id;
+  const user = await User.findById(loggedUserId).populate("friends").populate("communities");
   const communities = user.communities.map(community => {
     return {
       chatMongoId: community._id.toString(),
